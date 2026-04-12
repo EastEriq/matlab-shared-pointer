@@ -14,7 +14,7 @@ classdef shm < handle
             if ~exist('oflag','var')
                 oflag = bitor(OFLAGS.O_RDWR, OFLAGS.O_CREAT);
             end
-            obj.Descriptor = obj.shm_mex('create',id,size,oflag);
+            [obj.Descriptor,obj.Pointer] = obj.shm_mex('create',id,size,oflag);
             obj.Id=id;
             obj.Size=size;
             % now the uint64 pointer has to be converted to a libpointer
@@ -27,7 +27,9 @@ classdef shm < handle
                 obj.detach;
             end
             % call shm_unlink()
-            obj.shm_mex('destroy',obj.Id);
+            if ~isempty(obj.Id)
+                obj.shm_mex('destroy',obj.Id);
+            end
         end
  
         function detach(obj)

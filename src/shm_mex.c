@@ -13,7 +13,10 @@
 /* Helper function to get C string from MATLAB string */
 static char* get_string_from_marray(const mxArray *prhs) {
     if (!mxIsChar(prhs)) {
-        mexErrMsgIdAndTxt("MATLAB:mqueue:invalidInput", "Input must be a string");
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "Input must be a string, got a %s instead",
+                 mxGetClassName(prhs));
+        mexErrMsgIdAndTxt("MATLAB:shm:invalidInput",error_msg);
     }
     
     int buflen = (mxGetM(prhs) * mxGetN(prhs)) + 1;
@@ -31,17 +34,17 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     }
     
     char *shm_name = get_string_from_marray(prhs[0]);
-    int oflag = O_RDWR;
+    int oflag = O_RDWR | O_CREAT;
     size_t bsize;
-    long *pointer=NULL;
-    mode_t mode = 0644;
+    long long *pointer=NULL;
+    mode_t mode = 0666;
     
     /* Parse optional arguments */
     if (nrhs >= 2 && mxIsDouble(prhs[1])) {
         bsize = mxGetScalar(prhs[1]);
     }
     
-    if (nrhs >= 3 && mxIsDouble(prhs[2])) {
+    if (nrhs >= 3 && mxIsDouble(prhs[2]) || mxIsUint16(prhs[2])) {
         oflag = (int)mxGetScalar(prhs[2]);
     }
     
@@ -50,26 +53,26 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     
     if (shm_descriptor == -1) {
         char error_msg[256];
-        snprintf(error_msg, sizeof(error_msg), "shm_open failed: %s", strerror(errno));
+        snprintf(error_msg, sizeof(error_msg), "shm_open of %s failed: %s", shm_name, strerror(errno));
         mxFree(shm_name);
         mexErrMsgIdAndTxt("MATLAB:shm:openFailed", error_msg);
     }
     
    /* set segment size */
-   int tret = ftruncate(bsize, 0);
+   int tret = ftruncate(shm_descriptor,bsize);
 
     if (tret == -1) {
         char error_msg[256];
-        snprintf(error_msg, sizeof(error_msg), "ftruncate failed: %s", strerror(errno));
+        snprintf(error_msg, sizeof(error_msg), "ftruncate to size %ld failed: %s", bsize, strerror(errno));
         mxFree(shm_name);
         mexErrMsgIdAndTxt("MATLAB:shm:truncateFailed", error_msg);
     }
     
     /* map the segment and return its pointer */
-    *pointer = (long) mmap(NULL, bsize, PROT_READ | PROT_WRITE, MAP_SHARED,
+    pointer = mmap(NULL, bsize, PROT_READ | PROT_WRITE, MAP_SHARED,
                   shm_descriptor,0);
     
-    if (*pointer == -1) {
+    if (pointer == -1) {
         char error_msg[256];
         snprintf(error_msg, sizeof(error_msg), "mmap failed: %s", strerror(errno));
         mxFree(shm_name);
@@ -80,7 +83,9 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     plhs[0] = mxCreateDoubleScalar((double)shm_descriptor);
     /* Return mapped pointer if requested (FIXME)*/
     if (nlhs >= 2) {
-        plhs[1] = mxCreateDoubleScalar((double)*pointer);
+//        plhs[1] = mxCreateDoubleScalar(&pointer);
+        plhs[1] = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
+//        mxSetUint64s(plhs[1], pointer);
     }
     
     mxFree(shm_name);
@@ -103,7 +108,7 @@ void shm_detach_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
     descriptor = (int)mxGetScalar(prhs[2]);
     
     /* unmap the segment */
-    int uret = munmap(&pointer, bsize);
+    int uret = munmap(pointer, bsize);
     
     if (uret == -1) {
         char error_msg[256];
@@ -122,8 +127,8 @@ void shm_detach_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
     
 }
 
-/* SHM_OPEN: Create or open a shared memory segment and map it 
-   mandatory argument: name; optional: size, oflag  */
+/* SHM_DESTROY: Remove the shared memory segment (unlink) 
+                mandatory argument: name  */
 void shm_destroy_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (nrhs < 1) {
         mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", "shm_open requires the segment name");
@@ -149,17 +154,18 @@ void shm_destroy_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prh
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (nrhs < 1) {
         mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", 
-            "Usage: shm(command, ...)\nCommands: 'create', 'detach', 'destroy'");
+            "Usage: shm_mex(command, ...)\nCommands: 'create', 'detach', 'destroy'");
     }
     
-    char *command = get_string_from_marray(prhs[0]);
+    /* remember that calling as a class method, the first rhs is the class object itself */
+    char *command = get_string_from_marray(prhs[1]);
     
     if (strcmp(command, "create") == 0) {
-        shm_open_wrapper(nlhs, plhs, nrhs - 1, &prhs[1]);
+        shm_open_wrapper(nlhs, plhs, nrhs - 1, &prhs[2]);
     } else if (strcmp(command, "detach") == 0) {
-        shm_detach_wrapper(nlhs, plhs, nrhs - 1, &prhs[1]);
+        shm_detach_wrapper(nlhs, plhs, nrhs - 1, &prhs[2]);
     } else if (strcmp(command, "destroy") == 0) {
-        shm_destroy_wrapper(nlhs, plhs, nrhs - 1, &prhs[1]);
+        shm_destroy_wrapper(nlhs, plhs, nrhs - 1, &prhs[2]);
     } else {
         mxFree(command);
         mexErrMsgIdAndTxt("MATLAB:mqueue:unknownCommand", "Unknown command");

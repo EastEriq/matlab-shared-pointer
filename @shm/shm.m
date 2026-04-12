@@ -1,7 +1,9 @@
 classdef shm < handle
     properties
         Id char % char - must begin with /
-        Pointer libpointer
+        Pointer
+        Descriptor
+        Size
     end
     methods
         % creator, with arguments
@@ -12,19 +14,27 @@ classdef shm < handle
             if ~exist('oflag','var')
                 oflag = bitor(OFLAGS.O_RDWR, OFLAGS.O_CREAT);
             end
-            pointer=shm_mex('create',id,size,oflag);
-            % now the uint64 pointer has to be converted to a libpointer
+            obj.Descriptor = obj.shm_mex('create',id,size,oflag);
             obj.Id=id;
+            obj.Size=size;
+            % now the uint64 pointer has to be converted to a libpointer
         end
 
         % destructor
         function delete(obj)
+            if ~isempty(obj.Descriptor)
+                % detach first
+                obj.detach;
+            end
             % call shm_unlink()
+            obj.shm_mex('destroy',obj.Id);
         end
  
         function detach(obj)
             % call munmap() and close()
+            obj.shm_mex('detach',obj.Pointer,obj.Size,obj.Descriptor);
             obj.Pointer=[];
+            obj.Descriptor=[];
         end
     end
 end

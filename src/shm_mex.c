@@ -72,8 +72,14 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     pointer = mmap(NULL, bsize, PROT_READ | PROT_WRITE, MAP_SHARED,
                   shm_descriptor,0);
 
-    /* should we close the descriptor now? */
-    close(shm_descriptor);
+    /* We can close the descriptor now */
+    int cret = close(shm_descriptor);
+
+    if (cret == -1) {
+        char error_msg[256];
+        snprintf(error_msg, sizeof(error_msg), "shm_close failed: %s", strerror(errno));
+        mexErrMsgIdAndTxt("MATLAB:shm:closeFailed", error_msg);
+    }
 
     if (*pointer == -1) {
         char error_msg[256];
@@ -102,21 +108,20 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
    mandatory arguments: descriptor, size  */
 void shm_detach_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (nrhs < 2) {
-        mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", "shm_detach requires pointer, size and descriptor");
+        mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", "shm_detach requires pointer and size");
     }
 
     int descriptor;
     size_t bsize;
-    long unsigned int *pointer=NULL;
+    long unsigned int *pointer;
 
     /* Parse input arguments */
     pointer = (long unsigned int *) mxGetPr(prhs[0]);
     printf("%lx\n", *pointer);
     bsize = mxGetScalar(prhs[1]);
-    descriptor = (int)mxGetScalar(prhs[2]);
-
+ 
     /* unmap the segment */
-    int uret = munmap((long unsigned int *) *pointer, bsize);
+    int uret = munmap((void *) pointer, bsize);
 
     if (uret == -1) {
         char error_msg[256];
@@ -124,15 +129,6 @@ void shm_detach_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
         mexErrMsgIdAndTxt("MATLAB:shm:unmmapFailed", error_msg);
     }
 
-    /* Close the memory segment?
-    int cret = close(descriptor);
-
-    if (cret == -1) {
-        char error_msg[256];
-        snprintf(error_msg, sizeof(error_msg), "shm_close failed: %s", strerror(errno));
-        mexErrMsgIdAndTxt("MATLAB:shm:closeFailed", error_msg);
-    }
-    */
 }
 
 /* SHM_DESTROY: Remove the shared memory segment (unlink) 

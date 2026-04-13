@@ -8,8 +8,8 @@ Matlab calls: the neatest would be to have a class `shm`, with properties like `
 
 ## `shm.create(id,[size],[oflag])`
 
-Interface to `shm_open()` (creates the file descritor under `/dev/shm`), `ftruncate()`
-(sizes it) and `mmap()` (maps the memory in matlab's space).
+Interface to `shm_open()` (creates the file descriptor under `/dev/shm`), `ftruncate()`
+(sizes it), `mmap()` (maps the memory in matlab's space) and `close()`.
 
 This method populates the property `.Pointer` with a `libpointer` object,
 whose data is of type `uint8` (simplistic choice to implement a raw buffer).
@@ -23,9 +23,9 @@ Congobating the three API functions in a single matlab call assumes that most of
 the segments will not be resized, and mapped as soon as opened.
 
 
-## `shm.detach(id)` or `shm_detach(pointer)`
+## `shm.detach`
 
-Interface to `munmap()` and `close()`, when the segment is no more needed in matlab.
+Interface to `munmap()`, when the segment is no more needed in matlab.
 It would be nice if it was possible to figure out the segment id from the pointer or viceversa.
 
 ## `shm.destroy()`

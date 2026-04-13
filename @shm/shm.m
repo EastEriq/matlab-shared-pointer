@@ -34,7 +34,7 @@ classdef shm < handle
  
         function detach(obj)
             % call munmap() and close()
-            obj.shm_mex('detach',obj.Pointer,obj.Size,obj.Descriptor);
+            obj.shm_mex('detach',obj.Pointer,obj.Size);
             obj.Pointer=[];
             obj.Descriptor=[];
         end

@@ -2,6 +2,8 @@ classdef shm < handle
     properties (GetAccess = public, SetAccess = private)
         Id char % char - must begin with /
         Pointer
+    end
+    properties (Hidden, GetAccess = public, SetAccess = private)
         Address
         Descriptor
         Size
@@ -9,6 +11,7 @@ classdef shm < handle
     methods
         % creator, with arguments
         function obj=shm(id,size,oflag)
+            %
             if ~libisloaded('dereferencing_helper')
                 fpath = mfilename('fullpath');
                 d = fileparts(fpath);
@@ -34,6 +37,13 @@ classdef shm < handle
         % destructor
         function delete(obj)
             if ~isempty(obj.Descriptor)
+                % just detach
+                obj.detach;
+            end
+        end
+ 
+        function destroy(obj)
+            if ~isempty(obj.Descriptor)
                 % detach first
                 obj.detach;
             end
@@ -42,9 +52,9 @@ classdef shm < handle
                 obj.shm_mex('destroy',obj.Id);
             end
         end
- 
+        
         function detach(obj)
-            % call munmap() and close()
+            % call munmap()
             obj.shm_mex('detach',obj.Address,obj.Size);
             obj.Address=[];
             obj.Pointer=[];

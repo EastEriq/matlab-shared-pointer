@@ -92,16 +92,14 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     plhs[0] = mxCreateDoubleScalar((double)shm_descriptor);
     /* Return mapped pointer if requested (FIXME)*/
     if (nlhs >= 2) {
-//        plhs[1] = mxCreateDoubleScalar(&pointer);
         plhs[1] = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
-        //mxGetUint64s(plhs[1], (long) &pointer);
         output = (long unsigned int*) mxGetPr(plhs[1]);
-        //mxSetUint64s(plhs[1], output);
-        *output = (long unsigned int) &pointer;
-        //printf("%lx\n",(long) &pointer);
+        *output = (long unsigned int) pointer;
+        //printf("%lx\n", pointer);
     }
 
     mxFree(shm_name);
+
 }
 
 /* SHM_DETACH: Unmap and close a shared memory segment
@@ -117,11 +115,14 @@ void shm_detach_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs
 
     /* Parse input arguments */
     pointer = (long unsigned int *) mxGetPr(prhs[0]);
-    printf("%lx\n", *pointer);
+    //printf("%lx\n", *pointer);
+    if (pointer == NULL) {
+        mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", "shm_detach requires pointer");
+    }
     bsize = mxGetScalar(prhs[1]);
  
     /* unmap the segment */
-    int uret = munmap((void *) pointer, bsize);
+    int uret = munmap((long unsigned int*) *pointer, bsize);
 
     if (uret == -1) {
         char error_msg[256];

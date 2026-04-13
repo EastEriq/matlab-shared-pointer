@@ -37,6 +37,7 @@ classdef shm < handle
             obj.shm_mex('detach',obj.Pointer,obj.Size);
             obj.Pointer=[];
             obj.Descriptor=[];
+            obj.Size=[];
         end
     end
 end

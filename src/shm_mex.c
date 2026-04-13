@@ -18,7 +18,7 @@ static char* get_string_from_marray(const mxArray *prhs) {
                  mxGetClassName(prhs));
         mexErrMsgIdAndTxt("MATLAB:shm:invalidInput",error_msg);
     }
-    
+
     int buflen = (mxGetM(prhs) * mxGetN(prhs)) + 1;
     char *buf = mxMalloc(buflen);
     mxGetString(prhs, buf, buflen);
@@ -26,38 +26,38 @@ static char* get_string_from_marray(const mxArray *prhs) {
 }
 
 
-/* SHM_OPEN: Create or open a shared memory segment and map it 
+/* SHM_OPEN: Create or open a shared memory segment, map it and then close it
    mandatory argument: name; optional: size, oflag  */
 void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (nrhs < 1) {
         mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", "shm_open requires at least segment name");
     }
-    
+
     char *shm_name = get_string_from_marray(prhs[0]);
     int oflag = O_RDWR | O_CREAT;
     size_t bsize;
-    long long *pointer=NULL;
+    long unsigned int *pointer=NULL, *output;
     mode_t mode = 0666;
-    
+
     /* Parse optional arguments */
     if (nrhs >= 2 && mxIsDouble(prhs[1])) {
         bsize = mxGetScalar(prhs[1]);
     }
-    
+
     if (nrhs >= 3 && mxIsDouble(prhs[2]) || mxIsUint16(prhs[2])) {
         oflag = (int)mxGetScalar(prhs[2]);
     }
-    
+
     /* Open the memory segment */
     int shm_descriptor = shm_open(shm_name, oflag, mode);
-    
+
     if (shm_descriptor == -1) {
         char error_msg[256];
         snprintf(error_msg, sizeof(error_msg), "shm_open of %s failed: %s", shm_name, strerror(errno));
         mxFree(shm_name);
         mexErrMsgIdAndTxt("MATLAB:shm:openFailed", error_msg);
     }
-    
+
    /* set segment size */
    int tret = ftruncate(shm_descriptor,bsize);
 
@@ -67,12 +67,15 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
         mxFree(shm_name);
         mexErrMsgIdAndTxt("MATLAB:shm:truncateFailed", error_msg);
     }
-    
+
     /* map the segment and return its pointer */
     pointer = mmap(NULL, bsize, PROT_READ | PROT_WRITE, MAP_SHARED,
                   shm_descriptor,0);
-    
-    if (pointer == -1) {
+
+    /* should we close the descriptor now? */
+    close(shm_descriptor);
+
+    if (*pointer == -1) {
         char error_msg[256];
         snprintf(error_msg, sizeof(error_msg), "mmap failed: %s", strerror(errno));
         mxFree(shm_name);
@@ -85,46 +88,51 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     if (nlhs >= 2) {
 //        plhs[1] = mxCreateDoubleScalar(&pointer);
         plhs[1] = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
-//        mxSetUint64s(plhs[1], pointer);
+        //mxGetUint64s(plhs[1], (long) &pointer);
+        output = (long unsigned int*) mxGetPr(plhs[1]);
+        //mxSetUint64s(plhs[1], output);
+        *output = (long unsigned int) &pointer;
+        //printf("%lx\n",(long) &pointer);
     }
-    
+
     mxFree(shm_name);
 }
 
-/* SHM_DETACH: Unmap and close a shared memory segment 
+/* SHM_DETACH: Unmap and close a shared memory segment
    mandatory arguments: descriptor, size  */
 void shm_detach_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (nrhs < 2) {
         mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", "shm_detach requires pointer, size and descriptor");
     }
-    
+
     int descriptor;
     size_t bsize;
-    long *pointer=NULL;
-    
+    long unsigned int *pointer=NULL;
+
     /* Parse input arguments */
-    *pointer = mxGetScalar(prhs[0]);
+    pointer = (long unsigned int *) mxGetPr(prhs[0]);
+    printf("%lx\n", *pointer);
     bsize = mxGetScalar(prhs[1]);
     descriptor = (int)mxGetScalar(prhs[2]);
-    
+
     /* unmap the segment */
-    int uret = munmap(pointer, bsize);
-    
+    int uret = munmap((long unsigned int *) *pointer, bsize);
+
     if (uret == -1) {
         char error_msg[256];
         snprintf(error_msg, sizeof(error_msg), "unmmap failed: %s", strerror(errno));
         mexErrMsgIdAndTxt("MATLAB:shm:unmmapFailed", error_msg);
     }
 
-    /* Open the memory segment */
+    /* Close the memory segment?
     int cret = close(descriptor);
-    
+
     if (cret == -1) {
         char error_msg[256];
         snprintf(error_msg, sizeof(error_msg), "shm_close failed: %s", strerror(errno));
         mexErrMsgIdAndTxt("MATLAB:shm:closeFailed", error_msg);
     }
-    
+    */
 }
 
 /* SHM_DESTROY: Remove the shared memory segment (unlink) 
@@ -133,19 +141,19 @@ void shm_destroy_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prh
     if (nrhs < 1) {
         mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", "shm_open requires the segment name");
     }
-    
+
     char *shm_name = get_string_from_marray(prhs[0]);
-    
+
     /* Unlink the memory segment */
     int uret = shm_unlink(shm_name);
-    
+
     if (uret == -1) {
         char error_msg[256];
         snprintf(error_msg, sizeof(error_msg), "shm_unlink failed: %s", strerror(errno));
         mxFree(shm_name);
         mexErrMsgIdAndTxt("MATLAB:shm:unlinkFailed", error_msg);
     }
-    
+
     mxFree(shm_name);
 }
 
@@ -156,10 +164,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexErrMsgIdAndTxt("MATLAB:shm:invalidInput", 
             "Usage: shm_mex(command, ...)\nCommands: 'create', 'detach', 'destroy'");
     }
-    
+
     /* remember that calling as a class method, the first rhs is the class object itself */
     char *command = get_string_from_marray(prhs[1]);
-    
+
     if (strcmp(command, "create") == 0) {
         shm_open_wrapper(nlhs, plhs, nrhs - 1, &prhs[2]);
     } else if (strcmp(command, "detach") == 0) {
@@ -170,7 +178,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mxFree(command);
         mexErrMsgIdAndTxt("MATLAB:mqueue:unknownCommand", "Unknown command");
     }
-    
+
     mxFree(command);
 }
 

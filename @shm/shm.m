@@ -1,23 +1,34 @@
 classdef shm < handle
-    properties
+    properties (GetAccess = public, SetAccess = private)
         Id char % char - must begin with /
         Pointer
+        Address
         Descriptor
         Size
     end
     methods
         % creator, with arguments
         function obj=shm(id,size,oflag)
+            if ~libisloaded('dereferencing_helper')
+                fpath = mfilename('fullpath');
+                d = fileparts(fpath);
+                libdir=fullfile(d,'../src');
+                loadlibrary(fullfile(libdir,'dereferencing_helper.so'),...
+                            fullfile(libdir,'dereferencing_helper.h'));
+            end
             if ~exist('size','var')
                 size=0;
             end
             if ~exist('oflag','var')
                 oflag = bitor(OFLAGS.O_RDWR, OFLAGS.O_CREAT);
             end
-            [obj.Descriptor,obj.Pointer] = obj.shm_mex('create',id,size,oflag);
+            [obj.Descriptor,obj.Address] = obj.shm_mex('create',id,size,oflag);
             obj.Id=id;
             obj.Size=size;
             % now the uint64 pointer has to be converted to a libpointer
+            obj.Pointer=calllib('dereferencing_helper','addressToPointer',...
+                                obj.Address);
+            obj.Pointer.reshape(1,size);
         end
 
         % destructor
@@ -34,7 +45,8 @@ classdef shm < handle
  
         function detach(obj)
             % call munmap() and close()
-            obj.shm_mex('detach',obj.Pointer,obj.Size);
+            obj.shm_mex('detach',obj.Address,obj.Size);
+            obj.Address=[];
             obj.Pointer=[];
             obj.Descriptor=[];
             obj.Size=[];

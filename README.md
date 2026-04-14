@@ -21,7 +21,7 @@ Congobating the four API functions in a single matlab call assumes that most of 
 the segments will not be resized, and mapped as soon as opened.
 
 If `size` is not passed and `id`  points to an existing `/dev/shm` file, the existing
-segment size is used (maybe via a call to `fstat()`). This allows to reconnect to previously created segments.
+segment size is used. This allows to reconnect to previously created segments.
 
 
 ## `shm.detach`

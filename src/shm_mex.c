@@ -35,9 +35,10 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
     char *shm_name = get_string_from_marray(prhs[0]);
     int oflag = O_RDWR | O_CREAT;
-    size_t bsize;
+    size_t bsize = 0, old_bsize;
     long unsigned int *pointer=NULL, *output;
-    mode_t mode = 0666;
+    mode_t mode = 0666; // probably this is wrong - modes should be like in <sys/stat.h>
+    struct stat finfo;
 
     /* Parse optional arguments */
     if (nrhs >= 2 && mxIsDouble(prhs[1])) {
@@ -56,6 +57,11 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
         snprintf(error_msg, sizeof(error_msg), "shm_open of %s failed: %s", shm_name, strerror(errno));
         mxFree(shm_name);
         mexErrMsgIdAndTxt("MATLAB:shm:openFailed", error_msg);
+    } else {
+       fstat(shm_descriptor, &finfo);
+       old_bsize = finfo.st_size;
+       printf("old size = %d\n",old_bsize);
+       if (bsize == 0 && old_bsize > 0) bsize=old_bsize;
     }
 
    /* set segment size */
@@ -81,7 +87,7 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
         mexErrMsgIdAndTxt("MATLAB:shm:closeFailed", error_msg);
     }
 
-    if (*pointer == -1) {
+    if ((long) pointer == -1) {
         char error_msg[256];
         snprintf(error_msg, sizeof(error_msg), "mmap failed: %s", strerror(errno));
         mxFree(shm_name);
@@ -90,7 +96,13 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
     /* Return segment descriptor as output */
     plhs[0] = mxCreateDoubleScalar((double)shm_descriptor);
-    /* Return mapped pointer if requested (FIXME)*/
+
+    /* Return mapped pointer address, if requested
+     (FIXME - I would like the mex to return it as libpointer object,
+      instead of having to rely on a calllib helper. Maybe that would
+      be possible if phls[1] contained a ** double pointer instead of
+      mxArray, but I have found no documentation about nor succeeded
+      myself)*/
     if (nlhs >= 2) {
         plhs[1] = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
         output = (long unsigned int*) mxGetPr(plhs[1]);

@@ -14,15 +14,14 @@ Interface to `shm_open()` (creates the file descriptor under `/dev/shm`), `ftrun
 This method populates the property `.Pointer` with a `libpointer` object,
 whose data is of type `uint8` (simplistic choice to implement a raw buffer).
 
-Standard `oflags` like `O_RDRW`, `O_CREAT` could be passed, but maybe they can assumed.
+Standard `oflags` like `O_RDRW`, `O_CREAT` can be passed. Some of them are
+defined in the enum class `OFLAGS`. Use `bitor()` to combine them.
 
 Congobating the four API functions in a single matlab call assumes that most of the times
 the segments will not be resized, and mapped as soon as opened.
 
-### TODO
-
-_If `size` is not passed and `id`  points to an existing `/dev/shm` file, the existing
-segment size is used (maybe via a call to `fstat()`). This allows to reconnect to previously created segments._
+If `size` is not passed and `id`  points to an existing `/dev/shm` file, the existing
+segment size is used (maybe via a call to `fstat()`). This allows to reconnect to previously created segments.
 
 
 ## `shm.detach`

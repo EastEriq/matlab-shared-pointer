@@ -1,12 +1,15 @@
 classdef shm < handle
     properties (GetAccess = public, SetAccess = private)
-        Id char % char - must begin with /
-        Pointer
+        Id char % char - the leading / may be omitted, but should not contain further /
+    end
+    properties (Dependent)
+        Data uint8
     end
     properties (Hidden, GetAccess = public, SetAccess = private)
-        Address
+        Address uint64
+        Pointer
         Descriptor
-        Size
+        Size uint64
     end
     methods
         % creator, with arguments
@@ -27,11 +30,13 @@ classdef shm < handle
             end
             [obj.Descriptor,obj.Address] = obj.shm_mex('create',id,size,oflag);
             obj.Id=id;
-            obj.Size=size;
+            % get the actual size of the virtual file
+            f=dir(fullfile('/dev','shm',obj.Id));
+            obj.Size=f.bytes;
             % now the uint64 pointer has to be converted to a libpointer
             obj.Pointer=calllib('dereferencing_helper','addressToPointer',...
                                 obj.Address);
-            obj.Pointer.reshape(1,size);
+            obj.Pointer.reshape(1,obj.Size);
         end
 
         % destructor
@@ -52,7 +57,7 @@ classdef shm < handle
                 obj.shm_mex('destroy',obj.Id);
             end
         end
-        
+
         function detach(obj)
             % call munmap()
             obj.shm_mex('detach',obj.Address,obj.Size);
@@ -60,6 +65,15 @@ classdef shm < handle
             obj.Pointer=[];
             obj.Descriptor=[];
             obj.Size=[];
+        end
+
+        % getter and setter for Data (shortcut for .Pointer.Value)
+        function d=get.Data(obj)
+            d=obj.Pointer.Value;
+        end
+
+        function set.Data(obj,d)
+            obj.Pointer.Value=d;
         end
     end
 end

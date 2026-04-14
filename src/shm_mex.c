@@ -60,7 +60,7 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
     } else {
        fstat(shm_descriptor, &finfo);
        old_bsize = finfo.st_size;
-       printf("old size = %d\n",old_bsize);
+       //printf("old size = %d\n",old_bsize);
        if (bsize == 0 && old_bsize > 0) bsize=old_bsize;
     }
 
@@ -89,7 +89,7 @@ void shm_open_wrapper(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]
 
     if ((long) pointer == -1) {
         char error_msg[256];
-        snprintf(error_msg, sizeof(error_msg), "mmap failed: %s", strerror(errno));
+        snprintf(error_msg, sizeof(error_msg), "mmap (size %ld) failed: %s", bsize, strerror(errno));
         mxFree(shm_name);
         mexErrMsgIdAndTxt("MATLAB:shm:mmapFailed", error_msg);
     }

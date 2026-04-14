@@ -77,10 +77,4 @@ classdef shm < handle
         end
     end
     
-    methods (Hidden, Access=private)
-        % conceal the mex helper, so that it is not called by mistake
-        %  with wrong arguments, crashing matlab (argument check there is
-        %  only basic)
-        varargout = shm_mex(varargin)
-    end
 end

@@ -178,11 +178,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     char *command = get_string_from_marray(prhs[1]);
 
     if (strcmp(command, "create") == 0) {
-        shm_open_wrapper(nlhs, plhs, nrhs - 1, &prhs[2]);
+        shm_open_wrapper(nlhs, plhs, nrhs - 2, &prhs[2]);
     } else if (strcmp(command, "detach") == 0) {
-        shm_detach_wrapper(nlhs, plhs, nrhs - 1, &prhs[2]);
+        shm_detach_wrapper(nlhs, plhs, nrhs - 2, &prhs[2]);
     } else if (strcmp(command, "destroy") == 0) {
-        shm_destroy_wrapper(nlhs, plhs, nrhs - 1, &prhs[2]);
+        shm_destroy_wrapper(nlhs, plhs, nrhs - 2, &prhs[2]);
     } else {
         mxFree(command);
         mexErrMsgIdAndTxt("MATLAB:mqueue:unknownCommand", "Unknown command");

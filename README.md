@@ -4,7 +4,7 @@ Minimalist toolbox for sharing large byte arrays between matlab sessions via POS
 
 ## Functionality:
 
-Implements a class `shm` representing a shared memory object. Its data is accessible for writing and reading as
+Implements a class `POSIXipc.shm` representing a shared memory object. Its data is accessible for writing and reading as
 `shm.Data`, i.e. `shm.Pointer.Value`. Other properties are readonly and set at the time of creation.
 
 ### `shm(id,[size],[oflag])`
